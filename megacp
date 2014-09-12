@@ -1,0 +1,220 @@
+#!/usr/bin/perl -w
+
+# Copyright 2014 by Christian Jaeger. Published as open source under
+# the MIT License. See COPYING.md
+
+(my $email='ch%christianjaeger,ch')=~ tr/%,/@./;
+
+use strict; use warnings FATAL => 'uninitialized';
+
+$0=~ /(.*?)([^\/]+)\z/s or die "?";
+my ($mydir, $myname)=($1,$2);
+sub usage {
+    print STDERR map{"$_\n"} @_ if @_;
+    print "$myname [--] sourcedir targetdir
+
+  Like cp -a sourcedir targetdir, except:
+
+   - targetdir must not exist yet
+   - does not yet maintain times and permissions for dirs (TODO)
+   - currently slower to copy individual small files (TODO)
+
+  and should hopefully be less RAM hungry with huge number of files.
+
+  (Christian Jaeger <$email>)
+";
+exit (@_ ? 1 : 0);
+}
+
+use Getopt::Long;
+our $verbose=0;
+#our $opt_dry;
+GetOptions("verbose"=> \$verbose,
+	   "help"=> sub{usage},
+	   #"dry-run"=> \$opt_dry,
+	   ) or exit 1;
+usage unless @ARGV==2;
+
+sub xxsystem {
+    system (@_)==0
+      or die "system @_: $?";
+}
+
+sub xlink {
+    my ($from,$to)=@_;
+    warn "linking $from $to" if $verbose;
+    link $from, $to
+      or die "could not link '$from' to '$to': $!";
+}
+
+sub tempfile {
+    my $tmp= `tempfile`;
+    chomp $tmp;
+    length $tmp or die;
+    $tmp
+}
+
+{
+    package PFLANZE::File;
+    sub xopen {
+	my $cl= shift;
+	my ($mode,$path)=@_;
+	open my $fh, $mode, $path
+	  or die "open $mode '$path': $!";
+	bless [$path,$fh], $cl
+    }
+    sub xprint {
+	my $s=shift;
+	my ($path,$fh)= @$s;
+	print $fh @_
+	  or die "writing to '$path': $!";
+    }
+    sub xclose {
+	my $s=shift;
+	my ($path,$fh)= @$s;
+	close $fh
+	  or die "closing '$path': $!";
+    }
+    sub xunlink {
+	my $s=shift;
+	my ($path,$fh)= @$s;
+	unlink $path
+	  or die "unlink '$path': $!";
+    }
+    sub path {
+	my $s=shift;
+	my ($path,$fh)= @$s;
+	$path
+    }
+    sub fh {
+	my $s=shift;
+	my ($path,$fh)= @$s;
+	$fh
+    }
+    sub reader {
+	my $s=shift;
+	my ($path,$fh)= @$s;
+	ref($s)->xopen("<", $path)
+    }
+}
+
+
+sub xtempfile {
+    my $tmp= tempfile;
+    PFLANZE::File->xopen (">",$tmp)
+}
+
+sub xsortfile {
+    my ($path)=@_;
+    local $ENV{LANG}="C";
+    my $outpath= tempfile;
+    xxsystem ("sort -z < ".quotemeta($path)." > ".quotemeta($outpath));
+    $outpath
+}
+
+our $files= xtempfile;
+our $dirs= xtempfile;
+
+
+our ($source,$target)=@ARGV;
+
+sub scanprint {
+    my ($subpath)=@_;
+    my $path= "$source$subpath";
+    opendir my $dir, $path
+      or die "opendir '$path': $!";
+    while (defined (my $item= readdir $dir)) {
+	next if ($item eq "." or $item eq "..");
+	my $subpath= "$subpath/$item";
+	my $path= "$source$subpath";
+	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,
+	    $mtime,$ctime,$blksize,$blocks)= lstat $path
+	      or die "lstat '$path': $!";
+	my $filetype= ($mode & 0170000) >> 12;
+	my $is_dir= $filetype == 4;
+	if ($is_dir) {
+	    $dirs->xprint("$subpath\0");
+	    scanprint ($subpath);
+	} else {
+	    $files->xprint("$dev/$ino $subpath\0");
+	}
+    }
+    closedir $dir
+      or die "closing '$path': $!";
+}
+
+scanprint "";
+$_->xclose for ($files, $dirs);
+
+our $sortedfiles= xsortfile $files->path;
+$files->xunlink;
+
+
+# create target directories
+#-d $target or
+mkdir $target
+  or die "mkdir '$target': $!";
+{
+    my $in= $dirs->reader;
+    my $fh= $in->fh;
+    local $/="\0";
+    while (<$fh>) {
+	chomp;
+	my $path= "$target$_";
+	mkdir $path
+	  or die "mkdir '$path': $!";
+    }
+    $in->xclose;
+}
+
+# copy files
+{
+    my $in= PFLANZE::File->xopen("<",$sortedfiles);
+    my $fh= $in->fh;
+    local $/="\0";
+    my $cur_dev_ino;
+    my @paths;
+    my $act= sub {
+	my ($next_dev_ino)=@_;
+	{
+	    # copy
+	    my $firstpath= shift @paths;
+	    # XX optimize by copying small normal files from Perl
+	    xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
+	    for (@paths) {
+		xlink $target.$firstpath, $target.$_;
+		# (Handle case where some of the target locations are
+		# on different filesystems? But can't happen if we
+		# enforce mkdir first.)
+	    }
+	}
+	$cur_dev_ino= $next_dev_ino;
+	@paths=();
+    };
+    while (<$fh>) {
+	chomp;
+	my ($dev_ino,$path)= m|^([0-9]+/[0-9]+) (.*)|s
+	  or die "no match: '$_'";
+	#warn "path='$path'";
+	if (defined $cur_dev_ino) {
+	    if ($dev_ino ne $cur_dev_ino) {
+		&$act ($dev_ino);
+	    }
+	} else {
+	    $cur_dev_ino= $dev_ino;
+	}
+	push @paths, $path;
+    }
+    &$act if defined $cur_dev_ino;
+    $in->xclose;
+    $in->xunlink;
+}
+
+
+# XXX  copy dir permissions + time stamps; explicitely include toplevel dir!
+
+$dirs->xunlink;
+
+
+#use Chj::ruse;
+#use Chj::Backtrace; use Chj::repl; repl;

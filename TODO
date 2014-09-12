@@ -1,0 +1,3 @@
+- currently the program terminates upon encountering any error;
+  make it behave more usefully.
+
