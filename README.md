@@ -18,20 +18,21 @@ inode/device (hopefully in a way that's much less dependent on RAM),
 then parsing it back to do the actual copying, now encountering all
 the paths that need to be linked in groups.
 
-This is a work in progress. It was motivated by the post
+This work was motivated by the post
 [My experience with using cp to copy 432 million files (39 TB)][1]
 ([HN discussion][]).
 
  [1]: http://lists.gnu.org/archive/html/coreutils/2014-08/msg00012.html
  [HN discussion]: https://news.ycombinator.com/item?id=8305283
 
+The program should now work well enough for actual usage (but note the
+limitations in --help text and in TODO file.)
+
 It now implements efficient file copying: running megacp (relying on
 sendfile, i.e. recent Linux) on my laptop's /usr (47900 items, 2.7 GB)
 is only 4-7% slower than cp -a. This doesn't show its ability to
 handle huge numbers of hardlinked files, of course, I have yet to test
 that. Of course, feel free to test on your own data and report back.
-
-See limitations in --help text and in TODO file.
 
 
 # Installation
