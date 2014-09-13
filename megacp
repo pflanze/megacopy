@@ -27,6 +27,9 @@ sub usage {
 
    - targetdir must not yet exist
    - only does sparse copying for files over $MAX_SMALL_FILE bytes
+   - with small files, loses sub-second timestamp precision
+   (- does not care about ACL or possibly other kind of metadata; does cp?)
+   - stops on first error (TODO)
 
   and should hopefully be less RAM hungry with huge number of files.
 
