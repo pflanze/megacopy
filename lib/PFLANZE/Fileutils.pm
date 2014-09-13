@@ -25,6 +25,7 @@ package PFLANZE::Fileutils;
 
 use strict; use warnings FATAL => 'uninitialized';
 
+use File::Temp;
 use Chj::singlequote ':all';
 
 our $verbose;
@@ -41,19 +42,13 @@ sub xlink {
       or die "could not link '$from' to '$to': $!";
 }
 
-sub tempfile {
+sub _tempfile {
     my ($maybe_dir)=@_;
-    my $tmp= do {
-	if (defined $maybe_dir) {
-	    my $qdir= singlequote_sh $maybe_dir;
-	    `tempfile --directory $qdir`;
-	} else {
-	    `tempfile`;
-	}
-    };
-    chomp $tmp;
-    length $tmp or die;
-    $tmp
+    my $template= ($main::myname || "pflanze") . "-XXXXXXXX";
+    my ($fh, $path)= File::Temp::tempfile
+	($template,
+	 (defined $maybe_dir ? (DIR=> $maybe_dir) : ()));
+    $path
 }
 
 {
@@ -103,14 +98,14 @@ sub tempfile {
 
 sub xtempfile {
     my ($maybe_dir)=@_;
-    my $tmp= tempfile $maybe_dir;
+    my $tmp= _tempfile $maybe_dir;
     PFLANZE::File->xopen (">",$tmp)
 }
 
 sub xsortfile {
     my ($path, $maybe_tmp)=@_;
     local $ENV{LANG}="C";
-    my $outpath= tempfile $maybe_tmp;
+    my $outpath= _tempfile $maybe_tmp;
     xxsystem ("sort -z < ".singlequote_sh($path)." > ".singlequote_sh($outpath));
     $outpath
 }

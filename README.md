@@ -36,11 +36,6 @@ See limitations in --help text and in TODO file.
 
 # Installation
 
-- Note: this uses the 'tempfile' command as available on Debian to
-  create temp files, and makes use of its --directory option if the
-  megacp --tmp option is used. This should probably be changed to
-  something more platform neutral.
-
 - make sure Sys::Syscall is installed. Run
 
         $ perl -MSys::Syscall -e ''
