@@ -24,7 +24,7 @@ sub usage {
 
   Like cp -a sourcedir targetdir, except:
 
-   - targetdir must not exist yet
+   - targetdir must not yet exist
    - does not yet maintain times and permissions for dirs (TODO)
    - only does sparse copying for files over $MAX_SMALL_FILE bytes
 
