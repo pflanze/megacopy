@@ -25,7 +25,11 @@ This is a work in progress. It was motivated by the post
  [1]: http://lists.gnu.org/archive/html/coreutils/2014-08/msg00012.html
  [HN discussion]: https://news.ycombinator.com/item?id=8305283
 
-It now implements efficient file copying.
+It now implements efficient file copying: running megacp (relying on
+sendfile, i.e. recent Linux) on my laptop's /usr (47900 items, 2.7 GB)
+is only 4-7% slower than cp -a. This doesn't show its ability to
+handle huge numbers of hardlinked files, of course, I have yet to test
+that. Of course, feel free to test on your own data and report back.
 
 See limitations in --help text and in TODO file.
 
