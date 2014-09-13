@@ -53,7 +53,7 @@ $PFLANZE::Fileutils::verbose= $verbose;
 
 use PFLANZE::Xstat ":all";
 
-use File::Copy "cp";
+use File::Copy "copy";
 
 our @STORE_STATFIELDS= qw(dev ino mode uid gid size atime mtime);
 sub stat_from_fields {
@@ -133,11 +133,15 @@ mkdir $target
 		# use cp command, if only to get support for holes?
 		xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
 	    } else {
-		cp($source.$firstpath, $target.$firstpath)
-		  or die "cp('$source.$firstpath', '$target.$firstpath'): $!";
-		# cp does not keep mtime and atime
-		utime $s->atime, $s->mtime, $target.$firstpath
-		  or die "utime '$target.$firstpath': $!";
+		my $tpath= $target.$firstpath;
+		copy($source.$firstpath, $tpath)
+		  or die "copy('$source.$firstpath', '$tpath'): $!";
+		utime $s->atime, $s->mtime, $tpath
+		  or die "utime '$tpath': $!";
+		chown $s->uid, $s->gid, $tpath
+		  or die "chown '$tpath': $!";
+		chmod $s->permissions, $tpath
+		  or die "chmod '$tpath': $!";
 	    }
 	    for (@paths) {
 		xlink $target.$firstpath, $target.$_;
