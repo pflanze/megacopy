@@ -26,7 +26,7 @@ This work was motivated by the post
  [HN discussion]: https://news.ycombinator.com/item?id=8305283
 
 The program should now work well enough for actual usage (but note the
-limitations in --help text and in TODO file.)
+limitations in the --help text and the TODO file.)
 
 It now implements efficient file copying: running megacp (relying on
 sendfile, i.e. recent Linux) on my laptop's /usr (47900 items, 2.7 GB)
