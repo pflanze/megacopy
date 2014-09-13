@@ -19,9 +19,11 @@ then parsing it back to do the actual copying, now encountering all
 the paths that need to be linked in groups.
 
 This is a work in progress. It was motivated by the post
-[My experience with using cp to copy 432 million files (39 TB)]
-(http://lists.gnu.org/archive/html/coreutils/2014-08/msg00012.html)
-([HN discussion](https://news.ycombinator.com/item?id=8305283)).
+[My experience with using cp to copy 432 million files (39 TB)][1]
+([HN discussion][]).
+
+ [1]: http://lists.gnu.org/archive/html/coreutils/2014-08/msg00012.html
+ [HN discussion]: https://news.ycombinator.com/item?id=8305283
 
 It now implements efficient file copying.
 
@@ -34,19 +36,19 @@ See limitations in --help text and in TODO file.
 
 - check it out
 
-    # mkdir /opt/chj
-    # cd /opt/chj
-    # git clone https://github.com/pflanze/megacopy.git
+        # mkdir /opt/chj
+        # cd /opt/chj
+        # git clone https://github.com/pflanze/megacopy.git
 
 - make it accessible to your PATH:
 
-    # ln -s /opt/chj/megacopy/megacp /usr/local/bin
+        # ln -s /opt/chj/megacopy/megacp /usr/local/bin
 
   or
 
-    # PATH=/opt/chj/megacopy:"$PATH"
+        # PATH=/opt/chj/megacopy:"$PATH"
 
   or simply access it by its full path
 
-    # /opt/chj/megacopy/megacp
+        # /opt/chj/megacopy/megacp
 
