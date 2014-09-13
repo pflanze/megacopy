@@ -129,7 +129,7 @@ mkdir $target
 	{
 	    my $firstpath= shift @paths;
 	    my $s= $cur_s;
-	    if ($s->size > $MAX_SMALL_FILE) {
+	    if (not($s->is_file) or $s->size > $MAX_SMALL_FILE) {
 		# use cp command, if only to get support for holes?
 		xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
 	    } else {
