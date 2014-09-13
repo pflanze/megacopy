@@ -21,11 +21,11 @@ our $MKDIR_MASK= 0700;
 
 sub usage {
     print STDERR map{"$_\n"} @_ if @_;
-    print "$myname [--] sourcedir targetdir
+    print "$myname [--] sourcepath targetpath
 
-  Like cp -a sourcedir targetdir, except:
+  Like cp -a sourcepath targetpath, except:
 
-   - targetdir must not yet exist
+   - targetpath must not yet exist
    - only does sparse copying for files over $MAX_SMALL_FILE bytes
    - with small files, loses sub-second timestamp precision
    (- does not care about ACL or possibly other kind of metadata; does cp?)
@@ -107,23 +107,22 @@ sub scanprint {
     my ($subpath)=@_;
     my $path= "$source$subpath";
     perhaps_skip_errors {
-	opendir my $dir, $path
-	  or die "opendir '$path': $!";
-	while (defined (my $item= readdir $dir)) {
-	    next if ($item eq "." or $item eq "..");
-	    my $subpath= "$subpath/$item";
-	    my $path= "$source$subpath";
-	    my $s= xlstat $path;
-	    my $fields= join("/", map{ $s->$_ } @STORE_STATFIELDS);
-	    if ($s->is_dir) {
-		$dirs->xprint("$fields $subpath\0");
+	my $s= xlstat $path;
+	my $fields= join("/", map{ $s->$_ } @STORE_STATFIELDS);
+	if ($s->is_dir) {
+	    $dirs->xprint("$fields $subpath\0");
+	    opendir my $dir, $path
+		or die "opendir '$path': $!";
+	    while (defined (my $item= readdir $dir)) {
+		next if ($item eq "." or $item eq "..");
+		my $subpath= "$subpath/$item";
 		scanprint ($subpath);
-	    } else {
-		$files->xprint("$fields $subpath\0");
 	    }
+	    closedir $dir
+		or die "closing '$path': $!";
+	} else {
+	    $files->xprint("$fields $subpath\0");
 	}
-	closedir $dir
-	    or die "closing '$path': $!";
     };
 }
 
@@ -140,9 +139,6 @@ if ($opt_dry) {
 }
 
 # create target directories
-#-d $target or
-mkdir $target, $MKDIR_MASK
-  or die "mkdir '$target': $!";
 {
     my $in= $dirs->reader;
     my $fh= $in->fh;
@@ -217,11 +213,7 @@ mkdir $target, $MKDIR_MASK
 }
 
 
-# copy dir permissions + time stamps
-
-## XX ; explicitely include toplevel dir! ehr or rather, change algo
-## to stat first when scanning
-
+# copy dir time stamps and permissions
 {
     # (partially copy paste again, well)
     my $in= $dirs->reader;
