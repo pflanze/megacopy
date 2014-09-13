@@ -7,8 +7,15 @@
 
 use strict; use warnings FATAL => 'uninitialized';
 
-$0=~ /(.*?)([^\/]+)\z/s or die "?";
-my ($mydir, $myname)=($1,$2);
+use Cwd 'abs_path';
+
+our ($mydir, $myname);
+BEGIN {
+    my $location= (-l $0) ? abs_path ($0) : $0;
+    $location=~ /(.*?)([^\/]+?)_?\z/s or die "?";
+    ($mydir, $myname)=($1,$2);
+}
+
 sub usage {
     print STDERR map{"$_\n"} @_ if @_;
     print "$myname [--] sourcedir targetdir
@@ -35,88 +42,14 @@ GetOptions("verbose"=> \$verbose,
 	   ) or exit 1;
 usage unless @ARGV==2;
 
-sub xxsystem {
-    system (@_)==0
-      or die "system @_: $?";
-}
+our ($source,$target)=@ARGV;
 
-sub xlink {
-    my ($from,$to)=@_;
-    warn "linking $from $to" if $verbose;
-    link $from, $to
-      or die "could not link '$from' to '$to': $!";
-}
-
-sub tempfile {
-    my $tmp= `tempfile`;
-    chomp $tmp;
-    length $tmp or die;
-    $tmp
-}
-
-{
-    package PFLANZE::File;
-    sub xopen {
-	my $cl= shift;
-	my ($mode,$path)=@_;
-	open my $fh, $mode, $path
-	  or die "open $mode '$path': $!";
-	bless [$path,$fh], $cl
-    }
-    sub xprint {
-	my $s=shift;
-	my ($path,$fh)= @$s;
-	print $fh @_
-	  or die "writing to '$path': $!";
-    }
-    sub xclose {
-	my $s=shift;
-	my ($path,$fh)= @$s;
-	close $fh
-	  or die "closing '$path': $!";
-    }
-    sub xunlink {
-	my $s=shift;
-	my ($path,$fh)= @$s;
-	unlink $path
-	  or die "unlink '$path': $!";
-    }
-    sub path {
-	my $s=shift;
-	my ($path,$fh)= @$s;
-	$path
-    }
-    sub fh {
-	my $s=shift;
-	my ($path,$fh)= @$s;
-	$fh
-    }
-    sub reader {
-	my $s=shift;
-	my ($path,$fh)= @$s;
-	ref($s)->xopen("<", $path)
-    }
-}
-
-
-sub xtempfile {
-    my $tmp= tempfile;
-    PFLANZE::File->xopen (">",$tmp)
-}
-
-sub xsortfile {
-    my ($path)=@_;
-    local $ENV{LANG}="C";
-    my $outpath= tempfile;
-    xxsystem ("sort -z < ".quotemeta($path)." > ".quotemeta($outpath));
-    $outpath
-}
+use lib "$mydir/lib";
+use PFLANZE::Fileutils ":all";
+$PFLANZE::Fileutils::verbose= $verbose;
 
 our $files= xtempfile;
 our $dirs= xtempfile;
-
-
-our ($source,$target)=@ARGV;
 
 sub scanprint {
     my ($subpath)=@_;
