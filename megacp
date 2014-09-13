@@ -17,6 +17,7 @@ BEGIN {
 }
 
 our $MAX_SMALL_FILE= 8*1024*1024;
+our $MKDIR_MASK= 0700;
 
 sub usage {
     print STDERR map{"$_\n"} @_ if @_;
@@ -102,7 +103,7 @@ $files->xunlink;
 
 # create target directories
 #-d $target or
-mkdir $target
+mkdir $target, $MKDIR_MASK
   or die "mkdir '$target': $!";
 {
     my $in= $dirs->reader;
@@ -111,7 +112,7 @@ mkdir $target
     while (<$fh>) {
 	chomp;
 	my $path= "$target$_";
-	mkdir $path
+	mkdir $path, $MKDIR_MASK
 	  or die "mkdir '$path': $!";
     }
     $in->xclose;
