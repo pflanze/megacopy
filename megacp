@@ -30,7 +30,8 @@ sub usage {
    - with small files, loses sub-second timestamp precision
    (- does not care about ACL or possibly other kind of metadata; does cp?)
 
-  and should hopefully be less RAM hungry with huge number of files.
+  and should hopefully be less RAM hungry with huge numbers of
+  hard-linked files.
 
   $myname, by default, stops when it can't write to the target, but
   continues with a warning when it can't read from the source or can't
