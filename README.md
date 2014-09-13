@@ -23,3 +23,26 @@ This is a work in progress. It was motivated by the post
 (http://lists.gnu.org/archive/html/coreutils/2014-08/msg00012.html)
 ([HN discussion](https://news.ycombinator.com/item?id=8305283)).
 
+
+# Installation
+
+- install Sys::Syscall (libsys-syscall-perl package on Debian)
+
+- check it out
+
+    # mkdir /opt/chj
+    # cd /opt/chj
+    # git clone https://github.com/pflanze/megacopy.git
+
+- make it accessible to your PATH:
+
+    # ln -s /opt/chj/megacopy/megacp /usr/local/bin
+
+  or
+
+    # PATH=/opt/chj/megacopy:"$PATH"
+
+  or simply access it by its full path
+
+    # /opt/chj/megacopy/megacp
+
