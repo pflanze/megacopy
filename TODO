@@ -5,3 +5,6 @@
   copying small files; simply revert to using File::Copy's copy and
   drop the size argument to it if you're on another system.
 
+- implement heuristic for sparse handling in Perl, then copy all sizes
+  of files unless file is sparse.
+

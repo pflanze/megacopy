@@ -16,7 +16,7 @@ BEGIN {
     ($mydir, $myname)=($1,$2);
 }
 
-our $MAX_SMALL_FILE= 1024*1024;
+our $MAX_SMALL_FILE= 8*1024*1024;
 
 sub usage {
     print STDERR map{"$_\n"} @_ if @_;
