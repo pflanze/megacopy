@@ -45,8 +45,12 @@ usage unless @ARGV==2;
 our ($source,$target)=@ARGV;
 
 use lib "$mydir/lib";
+
 use PFLANZE::Fileutils ":all";
 $PFLANZE::Fileutils::verbose= $verbose;
+
+use PFLANZE::Xstat ":all";
+
 
 our $files= xtempfile;
 our $dirs= xtempfile;
@@ -60,16 +64,12 @@ sub scanprint {
 	next if ($item eq "." or $item eq "..");
 	my $subpath= "$subpath/$item";
 	my $path= "$source$subpath";
-	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,
-	    $mtime,$ctime,$blksize,$blocks)= lstat $path
-	      or die "lstat '$path': $!";
-	my $filetype= ($mode & 0170000) >> 12;
-	my $is_dir= $filetype == 4;
-	if ($is_dir) {
+	my $s= xlstat $path;
+	if ($s->is_dir) {
 	    $dirs->xprint("$subpath\0");
 	    scanprint ($subpath);
 	} else {
-	    $files->xprint("$dev/$ino $subpath\0");
+	    $files->xprint($s->dev."/".$s->ino." $subpath\0");
 	}
     }
     closedir $dir
