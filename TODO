@@ -1,10 +1,6 @@
 - currently the program terminates upon encountering any error;
   make it behave more usefully.
 
-- currently only works on Linux >= 2.6.33 as it uses sendfile for
-  copying small files; simply revert to using File::Copy's copy and
-  drop the size argument to it if you're on another system.
-
 - implement heuristic for sparse handling in Perl, then copy all sizes
   of files unless file is sparse.
 
