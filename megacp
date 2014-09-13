@@ -26,7 +26,6 @@ sub usage {
   Like cp -a sourcedir targetdir, except:
 
    - targetdir must not yet exist
-   - does not yet maintain times and permissions for dirs (TODO)
    - only does sparse copying for files over $MAX_SMALL_FILE bytes
 
   and should hopefully be less RAM hungry with huge number of files.
@@ -82,11 +81,11 @@ sub scanprint {
 	my $subpath= "$subpath/$item";
 	my $path= "$source$subpath";
 	my $s= xlstat $path;
+	my $fields= join("/", map{ $s->$_ } @STORE_STATFIELDS);
 	if ($s->is_dir) {
-	    $dirs->xprint("$subpath\0");
+	    $dirs->xprint("$fields $subpath\0");
 	    scanprint ($subpath);
 	} else {
-	    my $fields= join("/", map{ $s->$_ } @STORE_STATFIELDS);
 	    $files->xprint("$fields $subpath\0");
 	}
     }
@@ -111,7 +110,10 @@ mkdir $target, $MKDIR_MASK
     local $/="\0";
     while (<$fh>) {
 	chomp;
-	my $path= "$target$_";
+	my ($fields,$subpath)= split " " or die;
+	my $s= stat_from_fields(split "/", $fields);
+
+	my $path= "$target$subpath";
 	mkdir $path, $MKDIR_MASK
 	  or die "mkdir '$path': $!";
     }
@@ -175,7 +177,33 @@ mkdir $target, $MKDIR_MASK
 }
 
 
-# XXX  copy dir permissions + time stamps; explicitely include toplevel dir!
+# copy dir permissions + time stamps
+
+## XX ; explicitely include toplevel dir! ehr or rather, change algo
+## to stat first when scanning
+
+{
+    # (partially copy paste again, well)
+    my $in= $dirs->reader;
+    my $fh= $in->fh;
+    local $/="\0";
+    while (<$fh>) {
+	chomp;
+	my ($fields,$subpath)= split " " or die;
+	my $s= stat_from_fields(split "/", $fields);
+
+	my $tpath= "$target$subpath";
+	# (and this is copy paste from the file loop)
+	utime $s->atime, $s->mtime, $tpath
+	  or die "utime '$tpath': $!";
+	chown $s->uid, $s->gid, $tpath
+	  or die "chown '$tpath': $!";
+	chmod $s->permissions, $tpath
+	  or die "chmod '$tpath': $!";
+    }
+    $in->xclose;
+}
+
 
 $dirs->xunlink;
 
