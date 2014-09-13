@@ -1,5 +1,5 @@
-# Copyright 2014 by Christian Jaeger. Published as open source under
-# the MIT License. See COPYING.md
+# Copyright 2014 by Christian Jaeger. Published as Open Source
+# software under the MIT License. See COPYING.md
 
 =head1 NAME
 
