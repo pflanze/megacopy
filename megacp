@@ -123,7 +123,7 @@ mkdir $target, $MKDIR_MASK
     local $/="\0";
     while (<$fh>) {
 	chomp;
-	my ($fields,$subpath)= split " " or die;
+	my ($fields,$subpath)= split " ", $_, 2 or die;
 	my $s= stat_from_fields(split "/", $fields);
 
 	my $path= "$target$subpath";
@@ -172,7 +172,7 @@ mkdir $target, $MKDIR_MASK
     };
     while (<$fh>) {
 	chomp;
-	my ($fields,$path)= split " " or die;
+	my ($fields,$path)= split " ", $_, 2 or die;
 	my $s= stat_from_fields(split "/", $fields);
 	#warn "path='$path'";
 	if (defined $cur_s) {
@@ -202,7 +202,7 @@ mkdir $target, $MKDIR_MASK
     local $/="\0";
     while (<$fh>) {
 	chomp;
-	my ($fields,$subpath)= split " " or die;
+	my ($fields,$subpath)= split " ", $_, 2 or die;
 	my $s= stat_from_fields(split "/", $fields);
 
 	my $tpath= "$target$subpath";
@@ -222,4 +222,4 @@ $dirs->xunlink;
 
 
 #use Chj::ruse;
-#use Chj::Backtrace; use Chj::repl; repl;
+use Chj::Backtrace; # use Chj::repl; repl;
