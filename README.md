@@ -23,6 +23,10 @@ This is a work in progress. It was motivated by the post
 (http://lists.gnu.org/archive/html/coreutils/2014-08/msg00012.html)
 ([HN discussion](https://news.ycombinator.com/item?id=8305283)).
 
+It now implements efficient file copying.
+
+See limitations in --help text and in TODO file.
+
 
 # Installation
 

@@ -51,9 +51,9 @@ use lib "$mydir/lib";
 use PFLANZE::Fileutils ":all";
 $PFLANZE::Fileutils::verbose= $verbose;
 
-use PFLANZE::Xstat ":all";
+use PFLANZE::copy "copy_fast";
 
-use File::Copy "copy";
+use PFLANZE::Xstat ":all";
 
 our @STORE_STATFIELDS= qw(dev ino mode uid gid size atime mtime);
 sub stat_from_fields {
@@ -129,12 +129,13 @@ mkdir $target
 	{
 	    my $firstpath= shift @paths;
 	    my $s= $cur_s;
-	    if (not($s->is_file) or $s->size > $MAX_SMALL_FILE) {
+	    my $size= $s->size;
+	    if (not($s->is_file) or $size > $MAX_SMALL_FILE) {
 		# use cp command, if only to get support for holes?
 		xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
 	    } else {
 		my $tpath= $target.$firstpath;
-		copy($source.$firstpath, $tpath)
+		copy_fast($source.$firstpath, $tpath, $size)
 		  or die "copy('$source.$firstpath', '$tpath'): $!";
 		utime $s->atime, $s->mtime, $tpath
 		  or die "utime '$tpath': $!";
