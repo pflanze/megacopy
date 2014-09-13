@@ -1,7 +1,7 @@
 #
 # Copyright 2004-2014 by Christian Jaeger, ch at christianjaeger . ch
-# Published under the same terms as perl itself
-#
+# Published as Open Source software under the MIT License. See
+# COPYING.md
 
 =head1 NAME
 

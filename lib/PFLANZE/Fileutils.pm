@@ -25,6 +25,8 @@ package PFLANZE::Fileutils;
 
 use strict; use warnings FATAL => 'uninitialized';
 
+use Chj::singlequote ':all';
+
 our $verbose;
 
 sub xxsystem {
@@ -100,7 +102,7 @@ sub xsortfile {
     my ($path)=@_;
     local $ENV{LANG}="C";
     my $outpath= tempfile;
-    xxsystem ("sort -z < ".quotemeta($path)." > ".quotemeta($outpath));
+    xxsystem ("sort -z < ".singlequote_sh($path)." > ".singlequote_sh($outpath));
     $outpath
 }
 
