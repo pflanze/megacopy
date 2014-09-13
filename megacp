@@ -122,26 +122,21 @@ mkdir $target
     my $in= PFLANZE::File->xopen("<",$sortedfiles);
     my $fh= $in->fh;
     local $/="\0";
-    my $cur_dev_ino;
+    my $cur_s;
     my @paths;
     my $act= sub {
-	my ($next_dev_ino)=@_;
+	my ($next_s)=@_;
 	{
 	    my $firstpath= shift @paths;
-	    my $path= $source.$firstpath;
-	    # XX would it be good or bad for performance to save the
-	    # stat info in the tempfiles?
-	    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,
-		$mtime,$ctime,$blksize,$blocks)= lstat $path
-		  or die "lstat '$path': $!";
-	    if ($size > $MAX_SMALL_FILE) {
+	    my $s= $cur_s;
+	    if ($s->size > $MAX_SMALL_FILE) {
 		# use cp command, if only to get support for holes?
 		xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
 	    } else {
 		cp($source.$firstpath, $target.$firstpath)
 		  or die "cp('$source.$firstpath', '$target.$firstpath'): $!";
 		# cp does not keep mtime and atime
-		utime $atime, $mtime, $target.$firstpath
+		utime $s->atime, $s->mtime, $target.$firstpath
 		  or die "utime '$target.$firstpath': $!";
 	    }
 	    for (@paths) {
@@ -151,25 +146,24 @@ mkdir $target
 		# enforce mkdir first.)
 	    }
 	}
-	$cur_dev_ino= $next_dev_ino;
+	$cur_s= $next_s;
 	@paths=();
     };
     while (<$fh>) {
 	chomp;
 	my ($fields,$path)= split " " or die;
 	my $s= stat_from_fields(split "/", $fields);
-	my $dev_ino= $s->dev."/".$s->ino;
 	#warn "path='$path'";
-	if (defined $cur_dev_ino) {
-	    if ($dev_ino ne $cur_dev_ino) {
-		&$act ($dev_ino);
+	if (defined $cur_s) {
+	    if (not $s->same_node($cur_s)) {
+		&$act ($s);
 	    }
 	} else {
-	    $cur_dev_ino= $dev_ino;
+	    $cur_s= $s;
 	}
 	push @paths, $path;
     }
-    &$act if defined $cur_dev_ino;
+    &$act(undef) if defined $cur_s;
     $in->xclose;
     $in->xunlink;
 }
