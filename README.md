@@ -32,9 +32,19 @@ See limitations in --help text and in TODO file.
 
 # Installation
 
-- install Sys::Syscall (libsys-syscall-perl package on Debian)
+- make sure Sys::Syscall is installed. Run
 
-- check it out
+        $ perl -MSys::Syscall -e ''
+
+  If this says "Can't locate Sys/Syscalll.pm" then on Debian (and
+  derivates) simply install the libsys-syscall-perl
+  package. Otherwise:
+
+        # cpan
+        ...
+        cpan[1]> install Sys::Syscall
+
+- check out sources
 
         # mkdir /opt/chj
         # cd /opt/chj
