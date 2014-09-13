@@ -42,7 +42,15 @@ sub xlink {
 }
 
 sub tempfile {
-    my $tmp= `tempfile`;
+    my ($maybe_dir)=@_;
+    my $tmp= do {
+	if (defined $maybe_dir) {
+	    my $qdir= singlequote_sh $maybe_dir;
+	    `tempfile --directory $qdir`;
+	} else {
+	    `tempfile`;
+	}
+    };
     chomp $tmp;
     length $tmp or die;
     $tmp
@@ -94,14 +102,15 @@ sub tempfile {
 
 
 sub xtempfile {
-    my $tmp= tempfile;
+    my ($maybe_dir)=@_;
+    my $tmp= tempfile $maybe_dir;
     PFLANZE::File->xopen (">",$tmp)
 }
 
 sub xsortfile {
-    my ($path)=@_;
+    my ($path, $maybe_tmp)=@_;
     local $ENV{LANG}="C";
-    my $outpath= tempfile;
+    my $outpath= tempfile $maybe_tmp;
     xxsystem ("sort -z < ".singlequote_sh($path)." > ".singlequote_sh($outpath));
     $outpath
 }

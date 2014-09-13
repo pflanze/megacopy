@@ -43,6 +43,8 @@ sub usage {
     --stop-on-errors
                  also stop when encountering errors reading from the source,
                  or when encountering errors setting permissions on the target.
+    --tmp path   use path as the base (instead of /tmp, probably) for the
+                 tempfiles.
 
   (Christian Jaeger <$email>)
 ";
@@ -51,12 +53,12 @@ exit (@_ ? 1 : 0);
 
 use Getopt::Long;
 our $verbose=0;
-our $opt_dry;
-our $opt_stop_on_errors;
+our ($opt_dry, $opt_stop_on_errors, $opt_tmp);
 GetOptions("verbose"=> \$verbose,
 	   "help"=> sub{usage},
 	   "dry-run"=> \$opt_dry,
 	   "stop-on-errors"=> \$opt_stop_on_errors,
+	   "tmp=s"=> \$opt_tmp,
 	   ) or exit 1;
 usage unless @ARGV==2;
 
@@ -97,8 +99,8 @@ sub perhaps_skip_errors (&) {
 }
 
 
-our $files= xtempfile;
-our $dirs= xtempfile;
+our $files= xtempfile $opt_tmp;
+our $dirs= xtempfile $opt_tmp;
 
 sub scanprint {
     my ($subpath)=@_;
@@ -127,7 +129,7 @@ sub scanprint {
 scanprint "";
 $_->xclose for ($files, $dirs);
 
-our $sortedfiles= xsortfile $files->path;
+our $sortedfiles= xsortfile $files->path, $opt_tmp;
 $files->xunlink;
 
 if ($opt_dry) {
