@@ -55,6 +55,17 @@ use PFLANZE::Xstat ":all";
 
 use File::Copy "cp";
 
+our @STORE_STATFIELDS= qw(dev ino mode uid gid size atime mtime);
+sub stat_from_fields {
+    @_ == @STORE_STATFIELDS or die "received wrong number of fields";
+    my $s= bless [], "Chj::xperlfunc::xstat";
+    for (my $i=0; $i< @STORE_STATFIELDS; $i++) {
+	my $m= "set_".$STORE_STATFIELDS[$i];
+	$s->$m($_[$i]);
+    }
+    $s
+}
+
 
 
 our $files= xtempfile;
@@ -74,7 +85,8 @@ sub scanprint {
 	    $dirs->xprint("$subpath\0");
 	    scanprint ($subpath);
 	} else {
-	    $files->xprint($s->dev."/".$s->ino." $subpath\0");
+	    my $fields= join("/", map{ $s->$_ } @STORE_STATFIELDS);
+	    $files->xprint("$fields $subpath\0");
 	}
     }
     closedir $dir
@@ -132,7 +144,7 @@ mkdir $target
 		utime $atime, $mtime, $target.$firstpath
 		  or die "utime '$target.$firstpath': $!";
 	    }
-           for (@paths) {
+	    for (@paths) {
 		xlink $target.$firstpath, $target.$_;
 		# (Handle case where some of the target locations are
 		# on different filesystems? But can't happen if we
@@ -144,8 +156,9 @@ mkdir $target
     };
     while (<$fh>) {
 	chomp;
-	my ($dev_ino,$path)= m|^([0-9]+/[0-9]+) (.*)|s
-	  or die "no match: '$_'";
+	my ($fields,$path)= split " " or die;
+	my $s= stat_from_fields(split "/", $fields);
+	my $dev_ino= $s->dev."/".$s->ino;
 	#warn "path='$path'";
 	if (defined $cur_dev_ino) {
 	    if ($dev_ino ne $cur_dev_ino) {
