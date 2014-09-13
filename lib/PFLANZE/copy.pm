@@ -9,9 +9,11 @@ PFLANZE::copy
 
 =head1 SYNOPSIS
 
- use PFLANZE::copy 'copy_fast';
+ use PFLANZE::copy 'xcopy_fast';
 
- copy_fast $from, $to, $file_size; # dies on errors
+ xcopy_fast $from, $to, $file_size;
+   # dies on errors, with an PFLANZE::Exception::error_writing_to_target
+   # object if the error was writing to the target
 
 =head1 DESCRIPTION
 
@@ -24,41 +26,70 @@ back to File::Copy otherwise.
 package PFLANZE::copy;
 @ISA="Exporter"; require Exporter;
 @EXPORT=qw();
-@EXPORT_OK=qw(copy_fast);
+@EXPORT_OK=qw(xcopy_fast);
 %EXPORT_TAGS=(all=>[@EXPORT,@EXPORT_OK]);
 
 use strict; use warnings FATAL => 'uninitialized';
 
-sub copy_fast ($$$);
+{
+    package PFLANZE::Exception::error_writing_to_target;
+    use overload '""'=> sub {
+	my $s=shift;
+	$$s[0]
+    }
+}
+sub target_die {
+    my $e= bless [join "", @_ ], "PFLANZE::Exception::error_writing_to_target";
+    die $e
+}
+
+sub check_space_die {
+    # XXX this is a hack for cases where it's not clear from the
+    # context whether it was the source or target that failed. It
+    # won't work for write errors to the target; but the close calls
+    # might catch the latter anyway later on, so perhaps that's good
+    # enough.
+    my ($err,$msg)=@_;
+    if ($err=~ /out of space/i) {
+	target_die $msg;
+    } else {
+	die $msg
+    }
+}
+
+our $use_sendfile;
+
+sub xcopy_fast ($$$) {
+    my ($from, $to, $size)=@_;
+    open my $in, "<", $from
+      or die "open '$from': $!";
+    open my $out, ">", $to
+      or target_die "open '$to': $!";
+    if ($use_sendfile) {
+	my $res= Sys::Syscall::sendfile (fileno($out), fileno($in), $size);
+	if ($res < 0) {
+	    check_space_die "$!", "sendfile to '$to': $!";
+	} elsif ($res != $size) {
+	    die "sendfile to '$to': transferred $res instead of $size bytes ($!)";
+	}
+    } else {
+	File::Copy::copy($in,$out)
+	    or check_space_die "$!", "copying '$from', '$to': $!";
+    }
+    close $in or die "close while copying from '$from': $!";
+    close $out or target_die "close while copying to '$to': $!";
+}
 
 BEGIN {
     my $verbose= $ENV{VERBOSE};
 
     my $impl_sendfile= sub {
 	require Sys::Syscall;
-	*copy_fast= sub ($$$) {
-	    my ($from, $to, $size)=@_;
-	    open my $in, "<", $from
-		or die "open '$from': $!";
-	    open my $out, ">", $to
-		or die "open '$to': $!";
-	    my $res= Sys::Syscall::sendfile (fileno($out), fileno($in), $size);
-	    if ($res < 0) {
-		die "sendfile to '$to': $!";
-	    } elsif ($res != $size) {
-		die "sendfile to '$to': transferred $res instead of $size bytes ($!)";
-	    }
-	    close $in or die "close while copying from '$from': $!";
-	    close $out or die "close while copying to '$to': $!";
-	};
+	$use_sendfile=1;
     };
     my $impl_fallback= sub {
 	require File::Copy;
-	*copy_fast= sub ($$$) {
-	    my ($from, $to, $size)=@_;
-	    File::Copy::copy($from,$to)
-		or die "copying '$from', '$to': $!";
-	};
+	$use_sendfile=0;
     };
 
     if (`uname -s` =~ /^Linux/) {

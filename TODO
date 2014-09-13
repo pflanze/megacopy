@@ -1,6 +1,3 @@
-- currently the program terminates upon encountering any error;
-  make it behave more usefully.
-
 - implement heuristic for sparse handling in Perl, then copy all sizes
   of files unless file is sparse.
 

@@ -29,14 +29,20 @@ sub usage {
    - only does sparse copying for files over $MAX_SMALL_FILE bytes
    - with small files, loses sub-second timestamp precision
    (- does not care about ACL or possibly other kind of metadata; does cp?)
-   - stops on first error (TODO)
 
   and should hopefully be less RAM hungry with huge number of files.
 
-  Options:
+  $myname, by default, stops when it can't write to the target, but
+  continues with a warning when it can't read from the source or can't
+  set permissions on the target.
+
+  Options (they can be abbreviated as long as there's no ambiguity):
 
     --dry-run    only run the scanning and sorting phase,
                  then stop (leaving the tempfiles in place)
+    --stop-on-errors
+                 also stop when encountering errors reading from the source,
+                 or when encountering errors setting permissions on the target.
 
   (Christian Jaeger <$email>)
 ";
@@ -46,9 +52,11 @@ exit (@_ ? 1 : 0);
 use Getopt::Long;
 our $verbose=0;
 our $opt_dry;
+our $opt_stop_on_errors;
 GetOptions("verbose"=> \$verbose,
 	   "help"=> sub{usage},
 	   "dry-run"=> \$opt_dry,
+	   "stop-on-errors"=> \$opt_stop_on_errors,
 	   ) or exit 1;
 usage unless @ARGV==2;
 
@@ -59,7 +67,7 @@ use lib "$mydir/lib";
 use PFLANZE::Fileutils ":all";
 $PFLANZE::Fileutils::verbose= $verbose;
 
-use PFLANZE::copy "copy_fast";
+use PFLANZE::copy "xcopy_fast";
 
 use PFLANZE::Xstat ":all";
 
@@ -74,6 +82,19 @@ sub stat_from_fields {
     $s
 }
 
+sub perhaps_skip_errors (&) {
+    my ($thunk)=@_;
+    eval {
+	&$thunk;
+	1;
+    } || do {
+	my $e= $@;
+	die $e if ($opt_stop_on_errors
+		   or
+		   UNIVERSAL::isa($e, "PFLANZE::Exception::error_writing_to_target"));
+	print STDERR "Warning: $e";
+    }
+}
 
 
 our $files= xtempfile;
@@ -82,23 +103,25 @@ our $dirs= xtempfile;
 sub scanprint {
     my ($subpath)=@_;
     my $path= "$source$subpath";
-    opendir my $dir, $path
-      or die "opendir '$path': $!";
-    while (defined (my $item= readdir $dir)) {
-	next if ($item eq "." or $item eq "..");
-	my $subpath= "$subpath/$item";
-	my $path= "$source$subpath";
-	my $s= xlstat $path;
-	my $fields= join("/", map{ $s->$_ } @STORE_STATFIELDS);
-	if ($s->is_dir) {
-	    $dirs->xprint("$fields $subpath\0");
-	    scanprint ($subpath);
-	} else {
-	    $files->xprint("$fields $subpath\0");
+    perhaps_skip_errors {
+	opendir my $dir, $path
+	  or die "opendir '$path': $!";
+	while (defined (my $item= readdir $dir)) {
+	    next if ($item eq "." or $item eq "..");
+	    my $subpath= "$subpath/$item";
+	    my $path= "$source$subpath";
+	    my $s= xlstat $path;
+	    my $fields= join("/", map{ $s->$_ } @STORE_STATFIELDS);
+	    if ($s->is_dir) {
+		$dirs->xprint("$fields $subpath\0");
+		scanprint ($subpath);
+	    } else {
+		$files->xprint("$fields $subpath\0");
+	    }
 	}
-    }
-    closedir $dir
-      or die "closing '$path': $!";
+	closedir $dir
+	    or die "closing '$path': $!";
+    };
 }
 
 scanprint "";
@@ -146,20 +169,21 @@ mkdir $target, $MKDIR_MASK
 	    my $firstpath= shift @paths;
 	    my $s= $cur_s;
 	    my $size= $s->size;
-	    if (not($s->is_file) or $size > $MAX_SMALL_FILE) {
-		# use cp command, if only to get support for holes?
-		xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
-	    } else {
-		my $tpath= $target.$firstpath;
-		copy_fast($source.$firstpath, $tpath, $size)
-		  or die "copy('$source.$firstpath', '$tpath'): $!";
-		utime $s->atime, $s->mtime, $tpath
-		  or die "utime '$tpath': $!";
-		chown $s->uid, $s->gid, $tpath
-		  or die "chown '$tpath': $!";
-		chmod $s->permissions, $tpath
-		  or die "chmod '$tpath': $!";
-	    }
+	    perhaps_skip_errors {
+		if (not($s->is_file) or $size > $MAX_SMALL_FILE) {
+		    # use cp command, if only to get support for holes?
+		    xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
+		} else {
+		    my $tpath= $target.$firstpath;
+		    xcopy_fast($source.$firstpath, $tpath, $size);
+		    utime $s->atime, $s->mtime, $tpath
+			or die "utime '$tpath': $!";
+		    chown $s->uid, $s->gid, $tpath
+			or die "chown '$tpath': $!";
+		    chmod $s->permissions, $tpath
+			    or die "chmod '$tpath': $!";
+		}
+	    };
 	    for (@paths) {
 		xlink $target.$firstpath, $target.$_;
 		# (Handle case where some of the target locations are
@@ -205,14 +229,16 @@ mkdir $target, $MKDIR_MASK
 	my ($fields,$subpath)= split " ", $_, 2 or die;
 	my $s= stat_from_fields(split "/", $fields);
 
-	my $tpath= "$target$subpath";
-	# (and this is copy paste from the file loop)
-	utime $s->atime, $s->mtime, $tpath
-	  or die "utime '$tpath': $!";
-	chown $s->uid, $s->gid, $tpath
-	  or die "chown '$tpath': $!";
-	chmod $s->permissions, $tpath
-	  or die "chmod '$tpath': $!";
+	perhaps_skip_errors {
+	    my $tpath= "$target$subpath";
+	    # (and this is copy paste from the file loop)
+	    utime $s->atime, $s->mtime, $tpath
+		or die "utime '$tpath': $!";
+	    chown $s->uid, $s->gid, $tpath
+		or die "chown '$tpath': $!";
+	    chmod $s->permissions, $tpath
+		or die "chmod '$tpath': $!";
+	}
     }
     $in->xclose;
 }
