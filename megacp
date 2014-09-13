@@ -16,6 +16,8 @@ BEGIN {
     ($mydir, $myname)=($1,$2);
 }
 
+our $MAX_SMALL_FILE= 1024*1024;
+
 sub usage {
     print STDERR map{"$_\n"} @_ if @_;
     print "$myname [--] sourcedir targetdir
@@ -24,7 +26,7 @@ sub usage {
 
    - targetdir must not exist yet
    - does not yet maintain times and permissions for dirs (TODO)
-   - currently slower to copy individual small files (TODO)
+   - only does sparse copying for files over $MAX_SMALL_FILE bytes
 
   and should hopefully be less RAM hungry with huge number of files.
 
@@ -50,6 +52,9 @@ use PFLANZE::Fileutils ":all";
 $PFLANZE::Fileutils::verbose= $verbose;
 
 use PFLANZE::Xstat ":all";
+
+use File::Copy "cp";
+
 
 
 our $files= xtempfile;
@@ -110,11 +115,24 @@ mkdir $target
     my $act= sub {
 	my ($next_dev_ino)=@_;
 	{
-	    # copy
 	    my $firstpath= shift @paths;
-	    # XX optimize by copying small normal files from Perl
-	    xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
-	    for (@paths) {
+	    my $path= $source.$firstpath;
+	    # XX would it be good or bad for performance to save the
+	    # stat info in the tempfiles?
+	    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,
+		$mtime,$ctime,$blksize,$blocks)= lstat $path
+		  or die "lstat '$path': $!";
+	    if ($size > $MAX_SMALL_FILE) {
+		# use cp command, if only to get support for holes?
+		xxsystem "cp", "-a", "--", $source.$firstpath, $target.$firstpath;
+	    } else {
+		cp($source.$firstpath, $target.$firstpath)
+		  or die "cp('$source.$firstpath', '$target.$firstpath'): $!";
+		# cp does not keep mtime and atime
+		utime $atime, $mtime, $target.$firstpath
+		  or die "utime '$target.$firstpath': $!";
+	    }
+           for (@paths) {
 		xlink $target.$firstpath, $target.$_;
 		# (Handle case where some of the target locations are
 		# on different filesystems? But can't happen if we
