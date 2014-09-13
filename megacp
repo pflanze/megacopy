@@ -41,8 +41,8 @@ sub usage {
     --dry-run    only run the scanning and sorting phase,
                  then stop (leaving the tempfiles in place)
     --stop-on-errors
-                 also stop when encountering errors reading from the source,
-                 or when encountering errors setting permissions on the target.
+                 also stop when encountering errors reading from the
+                 source or setting permissions on the target.
     --tmp path   use path as the base (instead of /tmp, probably) for the
                  tempfiles.
 
