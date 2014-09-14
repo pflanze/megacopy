@@ -59,7 +59,7 @@ $PFLANZE::Fileutils::verbose= $verbose;
 # simpler alternative?
 sub usually_small_random_integer {
     my $res= 9999;
-    for (1..5) {
+    for (1..8) {
 	my $x= int rand(150);
 	$res=$x if $x < $res;
     }
@@ -165,7 +165,8 @@ sub genlist {
 	    die $DONE;
 	}
 	my $str= random_filename;
-	if (length($str) > 1 and $str=~ s/^a//) {
+	if (length($str) > 1 and $str=~ s/^a//
+	    and rand() < (.7 ** $level)) {
 	    # directory
 	    genlist ("$dirpath/$str", $level + 1);
 	} else {
