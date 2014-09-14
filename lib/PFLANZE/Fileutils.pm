@@ -158,20 +158,18 @@ sub dirname ($ ) {
 sub xmkdir_p ($ );
 sub xmkdir_p ($ ) {
     my ($path)=@_;
-    if (-d $path) {
+    if (mkdir $path) {
 	#done
 	()
     } else {
-	if (mkdir $path) {
-	    #done
+	if ($! == EEXIST) {
+	    # done
 	    ()
+	} elsif ($! == ENOENT) {
+	    xmkdir_p(dirname $path);
+	    mkdir $path or die "could not mkdir('$path'): $!";
 	} else {
-	    if ($!==ENOENT) {
-		xmkdir_p(dirname $path);
-		mkdir $path or die "could not mkdir('$path'): $!";
-	    } else {
-		die "could not mkdir('$path'): $!";
-	    }
+	    die "could not mkdir('$path'): $!";
 	}
     }
 }
