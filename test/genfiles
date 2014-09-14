@@ -1,0 +1,296 @@
+#!/usr/bin/perl -w
+
+# Copyright 2014 by Christian Jaeger. Published as Open Source
+# software under the MIT License. See COPYING.md
+
+(my $email='ch%christianjaeger,ch')=~ tr/%,/@./;
+
+use strict; use warnings FATAL => 'uninitialized';
+
+use Cwd 'abs_path';
+our ($mydir, $myname);
+BEGIN {
+    my $location= (-l $0) ? abs_path ($0) : $0;
+    $location=~ /(.*?)([^\/]+?)_?\z/s or die "?";
+    ($mydir, $myname)=($1,$2);
+}
+
+our $MKDIR_MASK= 0700;
+
+sub usage {
+    print STDERR map{"$_\n"} @_ if @_;
+    print "$myname numnodes nlinks basedir
+
+  Generates <numnodes> random files (file inodes) below <basedir>,
+  with about <nlinks> hard links for each of them. The total number
+  of file path entries will be exactly numnodes * nlinks.
+
+  Options:
+    --tmp dirpath
+            base for tempfiles
+    --keep
+            don't unlink tempfiles
+
+  (Christian Jaeger <$email>)
+";
+exit (@_ ? 1 : 0);
+}
+
+use Getopt::Long;
+our $verbose=0;
+our ($opt_dry, $opt_tmp, $opt_keep);
+GetOptions("verbose"=> \$verbose,
+	   "help"=> sub{usage},
+	   "tmp=s"=> \$opt_tmp,
+	   "keep"=> \$opt_keep,
+	   "dry-run"=> \$opt_dry,
+	  ) or exit 1;
+usage unless @ARGV==3;
+
+our ($numnodes, $nlinks, $basedir)=@ARGV;
+
+use lib "$mydir/../lib";
+
+use PFLANZE::Fileutils ":all";
+$PFLANZE::Fileutils::verbose= $verbose;
+
+
+# Integers that are more likely to be small. Does this do what I want? 
+# simpler alternative?
+sub usually_small_random_integer {
+    my $res= 9999;
+    for (1..5) {
+	my $x= int rand(150);
+	$res=$x if $x < $res;
+    }
+    $res
+}
+
+
+{
+    # generate file names; making sure they don't contain spaces,
+    # since I'm going to use space as field separator
+    open my $randomfh, "base64 < /dev/urandom |"
+      or die $!;
+    my @r;
+    sub random_string {
+	my $attempt= do {
+	    if (@r) {
+		shift @r
+	    } else {
+		@r= split m|[^a-zA-Z0-9]|, scalar <$randomfh>;
+		shift @r
+	    }
+	};
+	if (my $len= length $attempt) {
+	    # make long strings less likely
+	    my $want= usually_small_random_integer;
+	    if ($want and $want < $len) {
+		# [XX keep the remainder for better performance?]
+		substr $attempt, 0, $want
+	    } else {
+		$attempt
+	    }
+	} else {
+	    goto \&random_string
+	}
+    }
+}
+
+use POSIX 'EEXIST';
+use Fcntl;
+
+sub Xmkdir {
+    my ($p)=@_;
+    mkdir $p or do {
+	if ($! == EEXIST) {
+	    0
+	} else {
+	    die "mkdir '$p': $!";
+	}
+    }
+}
+
+sub Xmkfile {
+    my ($p)=@_;
+    if (sysopen my $out, $p, O_CREAT|O_EXCL|O_WRONLY) {
+	$out
+    } else {
+	if ($! == EEXIST) {
+	    0
+	} else {
+	    die "Xmkfile '$p': $!";
+	}
+    }
+}
+
+our $DONE= bless [], "PFLANZE::DONE";
+sub is_DONE {
+    UNIVERSAL::isa(shift, "PFLANZE::DONE");
+}
+sub catch_DONE (&) {
+    my ($thunk)=@_;
+    eval { &$thunk; 1 } || do {
+	if (is_DONE $@) {
+	    # return value?
+	} else {
+	    die $@
+	}
+    }
+}
+
+
+# --- create file list
+
+our $files= xtempfile $opt_tmp;
+
+sub random_inode {
+    int rand($numnodes);
+}
+
+our $filepath_count=0;
+our $num_filepaths_real= $numnodes * $nlinks;
+# generate enough so that after elimination of doubles we've still got
+# $num_filepaths_real:
+our $num_filepaths_generate= $num_filepaths_real * 1.05;
+
+sub genlist {
+    my ($dirpath,$level)=@_;
+    my $n=
+      ($level ? int ( $numnodes * 0.2 * (.8 ** $level) )
+       # otherwise loop 'forever', until $DONE:
+       : $num_filepaths_generate);
+    for (1..$n) {
+	if ($filepath_count >= $num_filepaths_generate) {
+	    die $DONE;
+	}
+	my $str= random_string;
+	if (length($str) > 1 and $str=~ s/^a//) {
+	    # directory
+	    genlist ("$dirpath/$str", $level + 1);
+	} else {
+	    # file
+	    my $inode= random_inode;
+	    # add a character that can't appear in directory paths, to
+	    # make sure that the same path is not used both for a file
+	    # and a directory
+	    my $path= "$dirpath/$str-";
+	    $files->xprint("$inode $path\0");
+	    $filepath_count++;
+	}
+    }
+}
+
+catch_DONE {
+    genlist "", 0;
+    die "created only $filepath_count/$num_filepaths_generate file paths";
+};
+
+$files->xclose;
+
+# remove duplicates:
+our $files_nodupes= xtempfile $opt_tmp;
+{
+    my $files_by_path = $files->xsortfile($opt_tmp, "-k 2");
+    $files->xunlink unless $opt_keep;
+    my $fh= $files_by_path->fh;
+    my $last_path="&";
+    local $/= "\0";
+    my $num_files_nodupes=0;
+    while (<$fh>) {
+	my ($ino,$path)= split " "; chomp $path;
+	if ($path ne $last_path) {
+	    $files_nodupes->xprint($_);
+	    $num_files_nodupes++;
+
+	    if ($num_files_nodupes >= $num_filepaths_real) {
+		# have enough files, drop the rest. If I were a
+		# perfectionalist, I would be bothered by the
+		# disturbance of the distribution of the file names,
+		# as they are being cut by position in the sorting now.
+		last;
+	    }
+	    $last_path = $path;
+	}
+    }
+    $files_nodupes->xclose;
+    $files_by_path->xclose;
+    $files_by_path->xunlink unless $opt_keep;
+}
+
+
+# turn into list that says which path to link from where [instead of
+# inodes, or keep those, too]
+
+# sort first by ino, then path: paths within a group should be sorted
+# the same they will be acted on in the end. Since "ino path" is
+# stored, sort works that way already.
+our $files_by_inode_and_path = $files_nodupes->xsortfile ($opt_tmp);
+
+$files_nodupes->xunlink unless $opt_keep;
+
+our $filesrecipe= xtempfile $opt_tmp;
+{
+    my $fh= $files_by_inode_and_path->fh;
+    my ($cur_ino, $cur_path); # cur_path is link leader
+    local $/= "\0";
+    while (<$fh>) {
+	my ($ino,$path)= split " "; chomp $path;
+	my $create_file= sub {
+	    # command to create file
+	    $filesrecipe->xprint("$ino $path\0");
+	    $cur_ino= $ino;
+	    $cur_path= $path;
+	};
+	if (defined $cur_ino) {
+	    if ($cur_ino eq $ino) {
+		# command to create link
+		$filesrecipe->xprint("$ino $path $cur_path\0");
+	    } else {
+		&$create_file;
+	    }
+	} else {
+	    &$create_file;
+	}
+    }
+    $filesrecipe->xclose;
+    $files_by_inode_and_path->xclose;
+    $files_by_inode_and_path->xunlink unless $opt_keep;
+}
+
+our $filesrecipe_by_path= $filesrecipe->xsortfile ($opt_tmp, "-k 2");
+$filesrecipe->xunlink unless $opt_keep;
+
+if ($opt_dry) {
+    print "--dry given: leaving filesrecipe_by_path file: "
+      .$filesrecipe_by_path->path."\n";
+    exit 0;
+}
+
+# finally, the file creation action:
+{
+    my $fh= $filesrecipe_by_path->fh;
+    local $/= "\0";
+    while (<$fh>) {
+	chomp;
+	my ($ino,$path,$maybe_from)= split " ";
+	my $newpath= "$basedir/$path";
+	xmkdir_p(dirname $newpath);
+	if (defined $maybe_from) {
+	    xlink "$basedir/$maybe_from", $newpath;
+	} else {
+	    if (my $fh= Xmkfile $newpath) {
+		print $fh $ino,"\n" or die "'$newpath': $!";
+		close $fh or die "close '$newpath': $!";
+	    } else {
+		die "path already exists: '$newpath'";
+	    }
+	}
+    }
+    $filesrecipe_by_path->xunlink unless $opt_keep;
+}
+
+
+
+#use Chj::ruse;
+#use Chj::Backtrace; use Chj::repl; repl;
