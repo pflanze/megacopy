@@ -103,10 +103,11 @@ sub xtempfile {
 }
 
 sub xsortfile {
-    my ($path, $maybe_tmp)=@_;
+    my ($path, $maybe_tmp, $maybe_options)=@_;
+    my $options= defined ($maybe_options) ? $maybe_options : "";
     local $ENV{LANG}="C";
     my $outpath= _tempfile $maybe_tmp;
-    xxsystem ("sort -z < ".singlequote_sh($path)." > ".singlequote_sh($outpath));
+    xxsystem ("sort -z $options < ".singlequote_sh($path)." > ".singlequote_sh($outpath));
     $outpath
 }
 
