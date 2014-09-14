@@ -20,6 +20,8 @@ package PFLANZE::Fileutils;
 	      xlink
 	      xtempfile
 	      xsortfile
+	      dirname
+	      xmkdir_p
 	    );
 %EXPORT_TAGS=(all=>[@EXPORT,@EXPORT_OK]);
 
@@ -119,5 +121,61 @@ sub _xsortfile {
 sub xsortfile {
     PFLANZE::File->xopen("<", _xsortfile(@_));
 }
+
+
+# copies from xperlfunc:
+
+BEGIN {
+    if ($^O eq 'linux') {
+	eval 'sub EEXIST() {17} sub ENOENT() {2}'; die if $@;
+    } else {
+	eval 'use POSIX "EEXIST","ENOENT"'; die if $@;
+    }
+}
+
+sub dirname ($ ) {
+    my ($path)=@_;
+    if ($path=~ s|/+[^/]+/*\z||) {
+	if (length $path) {
+	    $path
+	} else {
+	    "/"
+	}
+    } else {
+	# deviates from the shell in that dirname of . and / are errors. good?
+	if ($path=~ m|^/+\z|) {
+	    die "can't go out of file system"
+	} elsif ($path eq ".") {
+	    die "can't go above cur dir in a relative path";
+	} elsif ($path eq "") {
+	    die "can't take dirname of empty string";
+	} else {
+	    "."
+	}
+    }
+}
+
+sub xmkdir_p ($ );
+sub xmkdir_p ($ ) {
+    my ($path)=@_;
+    if (-d $path) {
+	#done
+	()
+    } else {
+	if (mkdir $path) {
+	    #done
+	    ()
+	} else {
+	    if ($!==ENOENT) {
+		xmkdir_p(dirname $path);
+		mkdir $path or die "could not mkdir('$path'): $!";
+	    } else {
+		die "could not mkdir('$path'): $!";
+	    }
+	}
+    }
+}
+
+# / copies
 
 1
