@@ -93,6 +93,10 @@ sub _tempfile {
 	my ($path,$fh)= @$s;
 	ref($s)->xopen("<", $path)
     }
+    sub xsortfile {
+	my $s=shift;
+	PFLANZE::Fileutils::xsortfile($s->path, @_);
+    }
 }
 
 
@@ -102,13 +106,18 @@ sub xtempfile {
     PFLANZE::File->xopen (">",$tmp)
 }
 
-sub xsortfile {
+sub _xsortfile {
     my ($path, $maybe_tmp, $maybe_options)=@_;
     my $options= defined ($maybe_options) ? $maybe_options : "";
     local $ENV{LANG}="C";
     my $outpath= _tempfile $maybe_tmp;
-    xxsystem ("sort -z $options < ".singlequote_sh($path)." > ".singlequote_sh($outpath));
+    xxsystem ("sort -z $options < ".singlequote_sh($path)
+	      ." > ".singlequote_sh($outpath));
     $outpath
+}
+
+sub xsortfile {
+    PFLANZE::File->xopen("<", _xsortfile(@_));
 }
 
 1

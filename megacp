@@ -129,12 +129,12 @@ sub scanprint {
 scanprint "";
 $_->xclose for ($files, $dirs);
 
-our $sortedfiles= xsortfile $files->path, $opt_tmp;
+our $sortedfiles= $files->xsortfile($opt_tmp);
 $files->xunlink;
 
 if ($opt_dry) {
     print "option --dry-run given, stopping.\n";
-    print "sorted files in '$sortedfiles', dirs in '".$dirs->path."'\n";
+    print "sorted files in '".$sortedfiles->path."', dirs in '".$dirs->path."'\n";
     exit 0;
 }
 
@@ -157,8 +157,7 @@ if ($opt_dry) {
 
 # copy files
 {
-    my $in= PFLANZE::File->xopen("<",$sortedfiles);
-    my $fh= $in->fh;
+    my $fh= $sortedfiles->fh;
     local $/="\0";
     my $cur_s;
     my @paths;
@@ -208,8 +207,8 @@ if ($opt_dry) {
 	push @paths, $path;
     }
     &$act(undef) if defined $cur_s;
-    $in->xclose;
-    $in->xunlink;
+    $sortedfiles->xclose;
+    $sortedfiles->xunlink;
 }
 
 
