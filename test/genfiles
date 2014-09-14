@@ -73,7 +73,7 @@ sub usually_small_random_integer {
     open my $randomfh, "base64 < /dev/urandom |"
       or die $!;
     my @r;
-    sub random_string {
+    sub random_filename {
 	my $attempt= do {
 	    if (@r) {
 		shift @r
@@ -92,7 +92,7 @@ sub usually_small_random_integer {
 		$attempt
 	    }
 	} else {
-	    goto \&random_string
+	    goto \&random_filename
 	}
     }
 }
@@ -164,7 +164,7 @@ sub genlist {
 	if ($filepath_count >= $num_filepaths_generate) {
 	    die $DONE;
 	}
-	my $str= random_string;
+	my $str= random_filename;
 	if (length($str) > 1 and $str=~ s/^a//) {
 	    # directory
 	    genlist ("$dirpath/$str", $level + 1);
