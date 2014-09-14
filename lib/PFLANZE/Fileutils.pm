@@ -163,8 +163,12 @@ sub xmkdir_p ($ ) {
 	()
     } else {
 	if ($! == EEXIST) {
-	    # done
-	    ()
+	    if (-d $path) {
+		# done
+		()
+	    } else {
+		die "exists but not a directory: '$path'";
+	    }
 	} elsif ($! == ENOENT) {
 	    xmkdir_p(dirname $path);
 	    mkdir $path or die "could not mkdir('$path'): $!";
