@@ -43,7 +43,7 @@ sub usage {
     --stop-on-errors
                  also stop when encountering errors reading from the
                  source or setting permissions on the target.
-    --tmp path   use path as the base (instead of /tmp, probably) for the
+    --tmp path   use path as the base (instead of \$TMPDIR or /tmp) for the
                  tempfiles.
 
   (Christian Jaeger <$email>)
