@@ -25,7 +25,6 @@ sub usage {
 
   Like cp -a sourcepath targetpath, except:
 
-   - targetpath must not yet exist
    - only does sparse copying for files over $MAX_SMALL_FILE bytes
    - with small files, loses sub-second timestamp precision
    (- does not care about ACL or possibly other kind of metadata; does cp?)
@@ -63,7 +62,7 @@ GetOptions("verbose"=> \$verbose,
 	   ) or exit 1;
 usage unless @ARGV==2;
 
-our ($source,$target)=@ARGV;
+our ($source,$_target)=@ARGV;
 
 use lib "$mydir/lib";
 
@@ -99,6 +98,9 @@ sub perhaps_skip_errors (&) {
     }
 }
 
+
+our $target =
+  -d $_target ? $_target . "/". basename($source) : $_target;
 
 our $files= xtempfile $opt_tmp;
 our $dirs= xtempfile $opt_tmp;
