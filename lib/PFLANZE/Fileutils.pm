@@ -66,40 +66,35 @@ sub _tempfile {
 	my ($mode,$path)=@_;
 	open my $fh, $mode, $path
 	  or die "open $mode '$path': $!";
-	bless [$path,$fh], $cl
+	bless +{path=> $path,fh=> $fh}, $cl
     }
     sub xprint {
 	my $s=shift;
-	my ($path,$fh)= @$s;
+	my $fh= $$s{fh};
 	print $fh @_
-	  or die "writing to '$path': $!";
+	  or die "writing to '$$s{path}': $!";
     }
     sub xclose {
 	my $s=shift;
-	my ($path,$fh)= @$s;
-	close $fh
-	  or die "closing '$path': $!";
+	close $$s{fh}
+	  or die "closing '$$s{path}': $!";
     }
     sub xunlink {
 	my $s=shift;
-	my ($path,$fh)= @$s;
-	unlink $path
-	  or die "unlink '$path': $!";
+	unlink $$s{path}
+	  or die "unlink '$$s{path}': $!";
     }
     sub path {
 	my $s=shift;
-	my ($path,$fh)= @$s;
-	$path
+	$$s{path}
     }
     sub fh {
 	my $s=shift;
-	my ($path,$fh)= @$s;
-	$fh
+	$$s{fh}
     }
     sub reader {
 	my $s=shift;
-	my ($path,$fh)= @$s;
-	ref($s)->xopen("<", $path)
+	ref($s)->xopen("<", $$s{path})
     }
     sub xsortfile {
 	my $s=shift;
@@ -107,11 +102,38 @@ sub _tempfile {
     }
 }
 
+{
+    package PFLANZE::TempFile;
+    our @ISA= qw(PFLANZE::File);
+    use POSIX ();  # for getpid, as $$ doesn't work correctly
+    sub xopen {
+	my $cl=shift;
+	my $s= $cl->SUPER::xopen(@_);
+	$$s{pid}= POSIX::getpid;
+	$s
+    }
+    sub xunlink {
+	my $s=shift;
+	$s->SUPER::xunlink(@_);
+	undef $$s{pid};
+    }
+    sub DESTROY {
+	my $s=shift;
+	my $pid= POSIX::getpid;
+	if (defined $$s{pid}
+	    and $$s{pid}==$pid
+	    ) {
+	    undef $$s{pid};
+	    print STDERR "leaving tempfile $$s{path}\n";
+	}
+    }
+}
+
 
 sub xtempfile {
     my ($maybe_dir)=@_;
     my $tmp= _tempfile $maybe_dir;
-    PFLANZE::File->xopen (">",$tmp)
+    PFLANZE::TempFile->xopen (">",$tmp)
 }
 
 sub _xsortfile {
