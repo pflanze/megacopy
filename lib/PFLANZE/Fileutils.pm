@@ -26,6 +26,9 @@ package PFLANZE::Fileutils;
 	      xbacktick
 	      xtempdir
 	      xtouch
+	      xmkdir
+	      xchdir
+	      xfork
 	    );
 %EXPORT_TAGS=(all=>[@EXPORT,@EXPORT_OK]);
 
@@ -210,6 +213,28 @@ sub basename ($ ; $ ) {
 	    ."): suffix does not match '$res'";
     }
     $res
+}
+
+sub xmkdir {
+    if (@_==1) {
+	mkdir $_[0]
+	  or croak "xmkdir($_[0]): $!";
+    } elsif (@_==2) {
+	mkdir $_[0],$_[1]
+	  or croak "xmkdir(".join(", ",@_)."): $!";
+    } else {
+	croak "xmkdir: wrong number of arguments";
+    }
+}
+
+sub xchdir {
+    chdir $_[0] or croak "xchdir '$_[0]': $!";
+}
+
+sub xfork() {
+    my $pid=fork;
+    defined $pid or croak "xfork: $!";
+    $pid
 }
 
 # / copies
