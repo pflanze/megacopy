@@ -94,7 +94,9 @@ sub _tempfile {
     }
     sub reader {
 	my $s=shift;
-	ref($s)->xopen("<", $$s{path})
+	# not using ref($s) as we don't want to make it a TempFile if
+	# we are, just a normal File
+	__PACKAGE__->xopen("<", $$s{path})
     }
     sub xsortfile {
 	my $s=shift;
@@ -147,7 +149,7 @@ sub _xsortfile {
 }
 
 sub xsortfile {
-    PFLANZE::File->xopen("<", _xsortfile(@_));
+    PFLANZE::TempFile->xopen("<", _xsortfile(@_));
 }
 
 
