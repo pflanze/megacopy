@@ -148,6 +148,7 @@ if ($opt_dry) {
     while (<$fh>) {
 	chomp;
 	my ($fields,$subpath)= split " ", $_, 2 or die;
+	next if $subpath eq "" and basename($target) eq "."; # mkdir would fail
 	my $s= stat_from_fields(split "/", $fields);
 
 	my $path= "$target$subpath";
