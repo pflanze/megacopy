@@ -1,0 +1,131 @@
+#!/usr/bin/perl -w
+
+# Copyright 2014 by Christian Jaeger. Published as Open Source
+# software under the MIT License. See COPYING.md
+
+(my $email='ch%christianjaeger,ch')=~ tr/%,/@./;
+
+use strict; use warnings FATAL => 'uninitialized';
+
+use Cwd 'abs_path';
+
+our ($mydir, $myname);
+BEGIN {
+    my $location= (-l $0) ? abs_path ($0) : $0;
+    $location=~ /(.*?)([^\/]+?)_?\z/s or die "?";
+    ($mydir, $myname)=($1,$2);
+}
+
+our $verbose= $ENV{VERBOSE};
+
+use lib "$mydir/../lib";
+
+use PFLANZE::Fileutils ":all";
+$PFLANZE::Fileutils::verbose= $verbose;
+
+use PFLANZE::copy "xcopy_fast";
+
+use PFLANZE::Xstat ":all";
+
+our $base= xtempdir;
+
+our $source= "$base/bar";
+xmkdir $source;
+xmkdir "$source/subdir";
+xtouch "$source/the-light";
+
+our $target= "$base/foo";
+
+sub delete_target {
+    my ($target)=@_;
+    unlink "$target/the-light";
+    rmdir "$target/subdir";
+    rmdir $target;
+    -e $target and die "bug";
+}
+
+sub cleanup {
+    delete_target $source;
+    rmdir $base;
+}
+
+# Test whether megacp behaves like cp with regards to the given target
+# existing or not and the target or source paths ending in "." or not.
+
+sub t_targetting {
+    my ($cmd, $do_mkdir, $src, $targ, $tbase_exist, $tbase_notexist)=@_;
+    my $tbase= $do_mkdir ? $tbase_exist : $tbase_notexist;
+    $src=~ s|/source/|$base/|;
+    $targ=~ s|/target/|$base/|;
+    $tbase=~ s|/target/|$base/|;
+    warn "do_mkdir=$do_mkdir, command: @$cmd $src $targ\n" if $verbose;
+    my $error= sub {
+	die "test failure (@$cmd $src $targ): @_"
+    };
+    if ($do_mkdir) {
+	xmkdir $target;
+    }
+    my $errlog= xtempfile;
+    if ((my $pid= xfork)) {
+	wait;
+	if ($tbase eq "error") {
+	    $? == 0 and &$error("expected error, but command succeeded");
+	} else {
+	    $? == 0 or &$error("child exited with error $?");
+	}
+    } else {
+	if ($src eq ".") {
+	    xchdir $source;
+	} elsif ($src eq "..") {
+	    xchdir "$source/subdir";
+	}
+	open STDERR, ">", $errlog->path or die $!;
+	exec @$cmd, $src, $targ
+	  or exit 127;
+    }
+    if ($tbase eq "error") {
+	open my $fh, "<", $errlog->path or die $!;
+	local $/; my $str= <$fh>; $errlog->xclose;
+	$str=~ /No such file or directory/i
+	  or &$error("command did not print expected message; see ".$errlog->path);
+    } else {
+	-e "$tbase/the-light"
+	  or &$error("not copied to expected target location");
+    }
+    delete_target "$target/bar";
+    delete_target $target;
+    $errlog->xunlink;
+}
+
+our @testvals=
+  # source, target, resulting target base if target exists, not exists
+  # ('error' means, the program is returning an error)
+  qw(
+. /target/foo			/target/foo		/target/foo
+. /target/foo/.			/target/foo		error
+/source/bar /target/foo		/target/foo/bar 	/target/foo
+/source/bar /target/foo/.	/target/foo/bar		error
+/source/bar/. /target/foo	/target/foo		/target/foo
+/source/bar/. /target/foo/.	/target/foo		error
+.. /target/foo			/target/foo		/target/foo
+.. /target/foo/.		/target/foo		error
+   );
+
+our $cp_cmd= [qw(cp -a)];
+our $megacp_cmd= [xbacktick("readlink", "-f", "$mydir/../megacp")];
+
+while (@testvals) {
+    my @v= splice @testvals, 0, 4;
+    t_targetting ($cp_cmd, 0, @v);
+    t_targetting ($cp_cmd, 1, @v);
+    t_targetting ($megacp_cmd, 0, @v);
+    t_targetting ($megacp_cmd, 1, @v);
+}
+
+print "ok.\n";
+
+cleanup;
+
+
+#use Chj::ruse;
+#use Chj::Backtrace; # use Chj::repl; repl;
