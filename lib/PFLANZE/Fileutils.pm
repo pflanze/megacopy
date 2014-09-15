@@ -23,6 +23,7 @@ package PFLANZE::Fileutils;
 	      dirname
 	      basename
 	      xmkdir_p
+	      xbacktick
 	    );
 %EXPORT_TAGS=(all=>[@EXPORT,@EXPORT_OK]);
 
@@ -210,5 +211,28 @@ sub basename ($ ; $ ) {
 }
 
 # / copies
+
+# reimplementation without need for dependencies
+
+sub xbacktick {
+    open my $in, "-|", @_
+      or die "can't run '$_[0]': $!";
+    my $res;
+    {
+	local $/;
+	$res= <$in>;
+    }
+    close $in
+      or do {
+	  if (length "$!") {
+	      die "closing output from '$_[0]': $!";
+	  } else {
+	      die "command '$_[0]' exited with code: $?";
+	  }
+      };
+    chomp $res;
+    $res
+}
+
 
 1
