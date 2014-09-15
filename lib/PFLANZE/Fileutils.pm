@@ -21,6 +21,7 @@ package PFLANZE::Fileutils;
 	      xtempfile
 	      xsortfile
 	      dirname
+	      basename
 	      xmkdir_p
 	    );
 %EXPORT_TAGS=(all=>[@EXPORT,@EXPORT_OK]);
@@ -125,6 +126,8 @@ sub xsortfile {
 
 # copies from xperlfunc:
 
+use Carp;
+
 BEGIN {
     if ($^O eq 'linux') {
 	eval 'sub EEXIST() {17} sub ENOENT() {2}'; die if $@;
@@ -176,6 +179,35 @@ sub xmkdir_p ($ ) {
 	    die "could not mkdir('$path'): $!";
 	}
     }
+}
+
+sub basename ($ ; $ ) {
+    my ($path,$maybe_suffix)=@_;
+    my $copy= $path;
+    $copy=~ s|.*/||s;
+    my $res= do {
+    length($copy) ? $copy : do {
+	# path ending in slash--or empty from the start.
+	if ($path=~ s|/+\z||s) {
+	    $path=~ s|.*/||s;
+	    # ^ this is necessary since we did it on $copy only,
+	    #   before!
+	    if (length $path) {
+		$path
+	    } else {
+		"/"  # or die? no.
+	    }
+	} else {
+	    croak "basename(".singlequote_many(@_)
+	      ."): cannot get basename from empty string";
+	}
+    }};
+    if (defined $maybe_suffix and length $maybe_suffix) {
+	$res=~ s/\Q$maybe_suffix\E\z//
+	  or croak "basename (".singlequote_many(@_)
+	    ."): suffix does not match '$res'";
+    }
+    $res
 }
 
 # / copies
