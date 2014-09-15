@@ -47,10 +47,9 @@ sub xlink {
 
 sub _tempfile {
     my ($maybe_dir)=@_;
+    my $dir= defined $maybe_dir ? $maybe_dir : ($ENV{TMPDIR} || "/tmp");
     my $template= ($main::myname || "pflanze") . "-XXXXXXXX";
-    my ($fh, $path)= File::Temp::tempfile
-	($template,
-	 (defined $maybe_dir ? (DIR=> $maybe_dir) : ()));
+    my ($fh, $path)= File::Temp::tempfile ($template, DIR=> $dir);
     $path
 }
 
