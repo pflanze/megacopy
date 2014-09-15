@@ -24,6 +24,8 @@ package PFLANZE::Fileutils;
 	      basename
 	      xmkdir_p
 	      xbacktick
+	      xtempdir
+	      xtouch
 	    );
 %EXPORT_TAGS=(all=>[@EXPORT,@EXPORT_OK]);
 
@@ -234,5 +236,13 @@ sub xbacktick {
     $res
 }
 
+
+sub xtempdir {
+    xbacktick "tempdir"
+}
+
+sub xtouch {
+    xbacktick "touch", @_;
+}
 
 1
