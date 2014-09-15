@@ -66,11 +66,10 @@ our ($source,$_target)=@ARGV;
 
 use lib "$mydir/lib";
 
+use POSIX 'EEXIST';
 use PFLANZE::Fileutils ":all";
 $PFLANZE::Fileutils::verbose= $verbose;
-
 use PFLANZE::copy "xcopy_fast";
-
 use PFLANZE::Xstat ":all";
 
 our @STORE_STATFIELDS= qw(dev ino mode uid gid size atime mtime);
@@ -100,7 +99,12 @@ sub perhaps_skip_errors (&) {
 
 
 our $target =
-  -d $_target ? $_target . "/". basename($source) : $_target;
+  -d $_target ?
+  do {
+      my $b= basename($source);
+      $b eq ".." ? $_target : $_target . "/". $b
+  }
+  : $_target;
 
 our $files= xtempfile $opt_tmp;
 our $dirs= xtempfile $opt_tmp;
@@ -148,12 +152,15 @@ if ($opt_dry) {
     while (<$fh>) {
 	chomp;
 	my ($fields,$subpath)= split " ", $_, 2 or die;
-	next if $subpath eq "" and basename($target) eq "."; # mkdir would fail
 	my $s= stat_from_fields(split "/", $fields);
 
 	my $path= "$target$subpath";
 	mkdir $path, $MKDIR_MASK
-	  or die "mkdir '$path': $!";
+	  or do {
+	      unless ($subpath eq "" and $! == EEXIST) {
+		  die "mkdir '$path': $!";
+	      }
+	  }
     }
     $in->xclose;
 }
