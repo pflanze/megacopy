@@ -46,6 +46,9 @@ sub usage {
     --tmp path   use path as the base (instead of \$TMPDIR or /tmp) for the
                  tempfiles.
 
+  $myname leaves tempfiles in place on errors; this is currently on
+  purpose so that they can be inspected.
+
   (Christian Jaeger <$email>)
 ";
 exit (@_ ? 1 : 0);
