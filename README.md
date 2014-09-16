@@ -28,11 +28,12 @@ This work was motivated by the post
 The program should now work well enough for actual usage (but note the
 limitations in the --help text and the TODO file.)
 
-It now implements efficient file copying: running megacp (relying on
-sendfile, i.e. recent Linux) on my laptop's /usr (47900 items, 2.7 GB)
-is only 4-7% slower than cp -a. This doesn't show its ability to
-handle huge numbers of hardlinked files, of course, I have yet to test
-that. Of course, feel free to test on your own data and report back.
+It now implements efficient file copying: running megacp on my
+laptop's /usr (47900 items, 2.7 GB), when on recent Linux and thus
+possible to rely on the sendfile system call, is only 4-7% slower than
+cp -a. This doesn't show its ability to handle huge numbers of
+hardlinked files, of course, I have yet to test that. Of course, feel
+free to test on your own data and report back.
 
 
 # Installation
